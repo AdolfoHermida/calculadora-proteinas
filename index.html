@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Proteínas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-card h3 { color: #667eea; font-size: 2em; margin-bottom: 5px; }
+        .stat-card p { color: #666; font-size: 0.9em; }
+        .content { padding: 30px; }
+        .section { margin-bottom: 40px; }
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        .quick-meals {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .meal-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: left;
+        }
+        .meal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .meal-btn .protein { font-size: 1.5em; margin-top: 10px; display: block; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: transform 0.2s;
+            margin-right: 10px;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table th, table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        table th {
+            background: #f8f9fa;
+            color: #667eea;
+            font-weight: 600;
+        }
+        table tr:hover { background: #f8f9fa; }
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .loading { text-align: center; padding: 40px; color: #667eea; font-size: 1.2em; }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🥩 Calculadora de Proteínas</h1>
+            <p>Seguimiento diario personalizado</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3 id="totalHoy">0g</h3>
+                <p>Proteínas de hoy</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="mediaDiaria">0g</h3>
+                <p>Media diaria</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalComidas">0</h3>
+                <p>Comidas registradas</p>
+            </div>
+        </div>
+
+        <div class="content">
+            <div id="mensaje"></div>
+
+            <div class="section">
+                <h2>🍽️ Comidas Rápidas</h2>
+                <div id="comidasRapidas" class="quick-meals">
+                    <div class="loading">Cargando comidas...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>➕ Registrar Comida Manual</h2>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="fecha" value="">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de comida</label>
+                    <select id="tipoComida">
+                        <option value="Desayuno">Desayuno</option>
+                        <option value="Comida">Comida</option>
+                        <option value="Cena">Cena</option>
+                        <option value="Snack">Snack</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Detalle</label>
+                    <textarea id="detalle" rows="3" placeholder="Describe la comida..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Proteínas (g)</label>
+                    <input type="number" id="proteinas" step="0.1" placeholder="0.0">
+                </div>
+                <button class="btn" onclick="guardarComida()">Guardar Comida</button>
+            </div>
+
+            <div class="section">
+                <h2>📊 Gráficos</h2>
+                <div class="charts">
+                    <div class="chart-container">
+                        <canvas id="chartPorDia"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartPorComida"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📋 Historial</h2>
+                <table id="historialTabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Detalle</th>
+                            <th>Proteínas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historialBody">
+                        <tr><td colspan="4" class="loading">Cargando historial...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ifytbglirljczzugkrrx.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlmeXRiZ2xpcmxqY3p6dWdrcnJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwMjYzMjksImV4cCI6MjA1OTYwMjMyOX0.eB_X3UUyASDIqh-o8MMqkk12ixqANtN3_r-bAQ5zrSQ';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let chartPorDia, chartPorComida;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('fecha').valueAsDate = new Date();
+            cargarDatos();
+        });
+
+        async function cargarDatos() {
+            try {
+                await Promise.all([
+                    cargarComidasRapidas(),
+                    cargarEstadisticas(),
+                    cargarHistorial(),
+                    cargarGraficos()
+                ]);
+            } catch (error) {
+                mostrarMensaje('Error al cargar datos: ' + error.message, 'error');
+            }
+        }
+
+        async function cargarComidasRapidas() {
+            const { data, error } = await supabase
+                .from('comidas_rapidas')
+                .select('*')
+                .order('proteinas', { ascending: false });
+
+            if (error) throw error;
+
+            const container = document.getElementById('comidasRapidas');
+            container.innerHTML = '';
+
+            data.forEach(comida => {
+                const btn = document.createElement('button');
+                btn.className = 'meal-btn';
+                btn.innerHTML = `
+                    <div>${comida.nombre}</div>
+                    <small>${comida.detalle || ''}</small>
+                    <span class="protein">${comida.proteinas}g</span>
+                `;
+                btn.onclick = () => registrarComidaRapida(comida);
+                container.appendChild(btn);
+            });
+        }
+
+        async function registrarComidaRapida(comida) {
+            const hoy = new Date().toISOString().split('T')[0];
+            const { error } = await supabase
+                .from('registro')
+                .insert({
+                    fecha: hoy,
+                    tipo_comida: 'Comida Rápida',
+                    detalle: comida.detalle || comida.nombre,
+                    proteinas: comida.proteinas
+                });
+
+            if (error) {
+                mostrarMensaje('Error al registrar: ' + error.message, 'error');
+            } else {
+                mostrarMensaje(`✅ ${comida.nombre} registrada: ${comida.proteinas}g de proteína`, 'success');
+                cargarDatos();
+            }
+        }
+
+        async function guardarComida() {
+            const fecha = document.getElementById('fecha').value;
+            const tipo = document.getElementById('tipoComida').value;
+            const detalle = document.getElementById('detalle').value;
+            const proteinas = parseFloat(document.getElementById('proteinas').value);
+
+            if (!fecha || !detalle || isNaN(proteinas)) {
+                mostrarMensaje('Por favor completa todos los campos', 'error');
+                return;
+            }
+
+            const { error } = await supabase
+                .from('registro')
+                .insert({
+                    fecha,
+                    tipo_comida: tipo,
+                    detalle,
+                    proteinas
+                });
+
+            if (error) {
+                mostrarMensaje('Error: ' + error.message, 'error');
+            } else {
+                mostrarMensaje(`✅ Comida registrada: ${proteinas}g de proteína`, 'success');
+                document.getElementById('detalle').value = '';
+                document.getElementById('proteinas').value = '';
+                cargarDatos();
+            }
+        }
+
+        async function cargarEstadisticas() {
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            const { data: hoyData } = await supabase
+                .from('registro')
+                .select('proteinas')
+                .eq('fecha', hoy);
+
+            const { data: totalData } = await supabase
+                .from('registro')
+                .select('proteinas, fecha');
+
+            const totalHoy = hoyData?.reduce((sum, r) => sum + parseFloat(r.proteinas), 0) || 0;
+            document.getElementById('totalHoy').textContent = totalHoy.toFixed(1) + 'g';
+
+            const totalComidas = totalData?.length || 0;
+            document.getElementById('totalComidas').textContent = totalComidas;
+
+            if (totalData && totalData.length > 0) {
+                const porDia = {};
+                totalData.forEach(r => {
+                    porDia[r.fecha] = (porDia[r.fecha] || 0) + parseFloat(r.proteinas);
+                });
+                const dias = Object.keys(porDia).length;
+                const totalProteinas = Object.values(porDia).reduce((a, b) => a + b, 0);
+                const media = totalProteinas / dias;
+                document.getElementById('mediaDiaria').textContent = media.toFixed(1) + 'g';
+            }
+        }
+
+        async function cargarHistorial() {
+            const { data, error } = await supabase
+                .from('registro')
+                .select('*')
+                .order('fecha', { ascending: false })
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (error) throw error;
+
+            const tbody = document.getElementById('historialBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No hay registros todavía</td></tr>';
+                return;
+            }
+
+            data.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${new Date(r.fecha).toLocaleDateString('es-ES')}</td>
+                    <td>${r.tipo_comida}</td>
+                    <td>${r.detalle}</td>
+                    <td><strong>${r.proteinas}g</strong></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function cargarGraficos() {
+            const { data } = await supabase
+                .from('registro')
+                .select('*')
+                .order('fecha', { ascending: true });
+
+            if (!data || data.length === 0) return;
+
+            const porDia = {};
+            const porTipo = {};
+
+            data.forEach(r => {
+                porDia[r.fecha] = (porDia[r.fecha] || 0) + parseFloat(r.proteinas);
+                porTipo[r.tipo_comida] = (porTipo[r.tipo_comida] || 0) + parseFloat(r.proteinas);
+            });
+
+            const ctxDia = document.getElementById('chartPorDia').getContext('2d');
+            if (chartPorDia) chartPorDia.destroy();
+            chartPorDia = new Chart(ctxDia, {
+                type: 'line',
+                data: {
+                    labels: Object.keys(porDia).map(f => new Date(f).toLocaleDateString('es-ES', {month: 'short', day: 'numeric'})),
+                    datasets: [{
+                        label: 'Proteínas por día (g)',
+                        data: Object.values(porDia),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Proteínas por Día' }
+                    }
+                }
+            });
+
+            const ctxComida = document.getElementById('chartPorComida').getContext('2d');
+            if (chartPorComida) chartPorComida.destroy();
+            chartPorComida = new Chart(ctxComida, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(porTipo),
+                    datasets: [{
+                        data: Object.values(porTipo),
+                        backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: true, text: 'Proteínas por Tipo de Comida' }
+                    }
+                }
+            });
+        }
+
+        function mostrarMensaje(texto, tipo) {
+            const div = document.getElementById('mensaje');
+            div.className = 'alert alert-' + tipo;
+            div.textContent = texto;
+            div.style.display = 'block';
+            setTimeout(() => div.style.display = 'none', 4000);
+        }
+    </script>
+</body>
+</html>
