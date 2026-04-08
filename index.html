@@ -233,6 +233,7 @@
                             <th>Tipo</th>
                             <th>Detalle</th>
                             <th>Proteínas</th>
+                                                        <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="historialBody">
@@ -394,11 +395,30 @@
                     <td>${r.tipo_comida}</td>
                     <td>${r.detalle}</td>
                     <td><strong>${r.proteinas}g</strong></td>
+                                    <td><button onclick="eliminarRegistro(${r.id})" style="background: #f5576c; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 1.1em;">🗑️</button></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
+
+            async function eliminarRegistro(id) {
+        if (!confirm('¿Seguro que quieres eliminar este registro?')) {
+            return;
+        }
+        
+        const { error } = await supabase
+            .from('registro')
+            .delete()
+            .eq('id', id);
+        
+        if (error) {
+            mostrarMensaje('Error al eliminar: ' + error.message, 'error');
+        } else {
+            mostrarMensaje('✅ Registro eliminado correctamente', 'success');
+            cargarDatos();
+        }
+    }
         async function cargarGraficos() {
             const { data } = await supabase
                 .from('registro')
