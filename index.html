@@ -403,10 +403,7 @@
 
 
             async function eliminarRegistro(id) {
-        if (!confirm('¿Seguro que quieres eliminar este registro?')) {
-            return;
         }
-        
         const { error } = await supabase
             .from('registro')
             .delete()
